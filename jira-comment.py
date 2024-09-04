@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import requests
 import json    
@@ -80,7 +82,7 @@ def create_issue(issue_summary):
                 "key": f"{project_key}"
             },
             "summary": f"{issue_summary}",
-            "description": f"This bug was automatically created on Pull Request for [repository|https://github.com/{repository}]",
+            "description": f"This issue was automatically created on Pull Request for [repository|https://github.com/{repository}]",
             "issuetype": {
                 "name": "Story"
             }
@@ -91,6 +93,8 @@ def create_issue(issue_summary):
     response.raise_for_status()
     
 def create_bug(bug_summary):
+    extract_keys_from_branch()
+
     jira_endpoint = os.getenv('JIRA_ENDPOINT')
     jira_token = os.getenv('JIRA_AUTHORIZATION')
     project_key = os.getenv('PROJECT_KEY')
@@ -120,16 +124,15 @@ def create_bug(bug_summary):
     response = requests.post(url, headers=headers, data=json.dumps(data))
     response.raise_for_status()
     
-    bug_key = response.json()['key'] # TEST THIS
+    bug_key = response.json()['key']
     
     with open(os.getenv("GITHUB_ENV"), "a") as env_file:
-        env_file.write(f"BUG_KEY={bug_key}\n") # TEST
+        env_file.write(f"BUG_KEY={bug_key}\n") 
 
 def change_bug_priority():
     jira_endpoint = os.getenv('JIRA_ENDPOINT')
     jira_token = os.getenv('JIRA_AUTHORIZATION')
     bug_key = os.getenv('BUG_KEY')
-    priority = "Blocker"
 
     url = f"{jira_endpoint}/issue/{bug_key}"
     
@@ -141,12 +144,12 @@ def change_bug_priority():
     data = {
         "fields": {
             "priority": {
-                "name": f"{priority}"
+                "name": "High"
             }
         }
     }
     
-    response = requests.put(url, headers=headers, data=json.dumps(data))
+    response = requests.request("PUT", url, headers=headers, data=json.dumps(data))
     response.raise_for_status()
 
 def assign_bug_to_issue():
@@ -178,6 +181,8 @@ def assign_bug_to_issue():
     response.raise_for_status()
 
 def get_transition_options(transition_name):
+    extract_keys_from_branch()
+    
     jira_endpoint = os.getenv('JIRA_ENDPOINT')
     jira_token = os.getenv('JIRA_AUTHORIZATION')
     issue_key = os.getenv('ISSUE_KEY')
@@ -192,15 +197,13 @@ def get_transition_options(transition_name):
     response = requests.get(url, headers=headers)
     response.raise_for_status()
     
-    transitions = response.json()
+    transition_options = response.json()
     
-    for transition in transitions['transitions']:
+    for transition in transition_options['transitions']:
         if transition['name'] == transition_name:
             transition_id = transition['id']
             with open(os.getenv("GITHUB_ENV"), "a") as env_file:
-                env_file.write(f"TRANSITION_ID={transition_id}\n") # TEST
-        else:
-            raise ValueError("Transition name not found.")
+                env_file.write(f"TRANSITION_ID={transition_id}\n")
 
 def transition_issue():
     jira_endpoint = os.getenv('JIRA_ENDPOINT')
